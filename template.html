@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar del Rechazo — Distribución BK37</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root, .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #f9f9f7;
+    --surface-card:   #ffffff;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid-line:      #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --border-strong:  rgba(11,11,11,0.16);
+
+    --series-1: #2a78d6; /* blue    - pedidos / rutas */
+    --series-2: #eb6834; /* orange  - volumen / empresas */
+    --series-3: #1baf7a; /* aqua */
+    --series-4: #eda100; /* yellow */
+    --series-5: #e87ba4; /* magenta */
+    --series-6: #008300; /* green */
+    --series-7: #4a3aa7; /* violet */
+    --series-8: #e34948; /* red */
+
+    --seq-100: #cde2fb; --seq-150:#b7d3f6; --seq-200:#9ec5f4; --seq-250:#86b6ef;
+    --seq-300: #6da7ec; --seq-350:#5598e7; --seq-400:#3987e5; --seq-450:#2a78d6;
+    --seq-500: #256abf; --seq-550:#1c5cab; --seq-600:#184f95; --seq-650:#104281; --seq-700:#0d366b;
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #d03b3b;
+    --success-text:    #006300;
+
+    --brand-red:       #c81e2c;
+    --brand-red-soft:  #e2483f;
+
+    --shadow-card: 0 1px 2px rgba(11,11,11,0.04), 0 4px 14px rgba(11,11,11,0.05);
+  }
+
+  :root[data-theme="dark"], [data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --surface-2:      #0d0d0d;
+    --surface-card:   #212120;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid-line:      #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --border-strong:  rgba(255,255,255,0.16);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #d03b3b;
+    --success-text:    #0ca30c;
+
+    --brand-red:       #ff4b4b;
+    --brand-red-soft:  #ff7a6e;
+
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.3), 0 4px 14px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--surface-2);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding-bottom: 48px; }
+
+  a { color: var(--series-1); }
+
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- Header ---------- */
+  header.top {
+    background: var(--surface-card);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-inner {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; padding: 22px 0;
+    flex-wrap: wrap;
+  }
+  .brand { display: flex; flex-direction: column; gap: 4px; }
+  .brand .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--series-1);
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-family: "Consolas", "SFMono-Regular", "Courier New", ui-monospace, monospace;
+    background: linear-gradient(180deg, var(--brand-red-soft) 0%, var(--brand-red) 65%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: var(--brand-red);
+    -webkit-text-fill-color: var(--brand-red);
+    text-shadow: 0 0 14px color-mix(in srgb, var(--brand-red) 35%, transparent);
+  }
+  @supports (-webkit-background-clip: text) {
+    .brand h1 { -webkit-text-fill-color: transparent; }
+  }
+  .brand .sub { margin: 0; font-size: 13px; color: var(--text-secondary); }
+  .header-meta { display: flex; align-items: center; gap: 10px; }
+  .meta-pill {
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 999px;
+  }
+  .theme-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+    background: var(--surface-2); border: 1px solid var(--border-strong);
+    padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  }
+  .theme-btn:hover { background: var(--surface-1); }
+
+  /* ---------- Upload panel ---------- */
+  .upload-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .upload-btn {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    font-size: 13px; font-weight: 700; color: #fff; background: var(--series-1);
+    padding: 9px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  }
+  .upload-btn:hover { filter: brightness(1.08); }
+  .upload-status {
+    margin-top: 12px; font-size: 12.5px; padding: 9px 12px; border-radius: 8px;
+    background: var(--surface-1); border: 1px solid var(--border);
+  }
+  .upload-status.ok { color: var(--success-text); border-color: color-mix(in srgb, var(--status-good) 40%, var(--border)); background: color-mix(in srgb, var(--status-good) 10%, var(--surface-1)); }
+  .upload-status.err { color: var(--status-critical); border-color: color-mix(in srgb, var(--status-critical) 40%, var(--border)); background: color-mix(in srgb, var(--status-critical) 10%, var(--surface-1)); }
+  .batch-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .batch-row {
+    display: flex; align-items: center; gap: 10px; font-size: 12.5px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .batch-row .b-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .batch-row .b-meta { color: var(--text-muted); flex: 1; }
+  .batch-row .b-remove {
+    font-size: 11.5px; font-weight: 700; color: var(--status-critical); background: transparent;
+    border: 1px solid color-mix(in srgb, var(--status-critical) 45%, transparent); border-radius: 6px;
+    padding: 4px 9px; cursor: pointer; flex: none;
+  }
+  .batch-row .b-remove:hover { background: color-mix(in srgb, var(--status-critical) 12%, transparent); }
+  .batch-row.base { opacity: .85; }
+  .batch-clear {
+    align-self: flex-start; margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    background: transparent; border: none; text-decoration: underline; cursor: pointer; padding: 2px 0;
+  }
+
+  /* ---------- Filters ---------- */
+  .filters-card {
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 14px 16px; margin: 18px 0;
+  }
+  .filters-row {
+    display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end;
+  }
+  .filter-field { display: flex; flex-direction: column; gap: 5px; min-width: 140px; }
+  .filter-field label {
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .filter-field select, .filter-field input[type="date"], .filter-field input[type="text"] {
+    font: inherit; font-size: 13px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 7px 9px; min-height: 34px;
+  }
+  .filter-field input[type="text"] { min-width: 160px; }
+  .filter-field input[type="text"]:focus, .filter-field select:focus { outline: 2px solid var(--series-1); outline-offset: 1px; }
+  .filter-field.dates { flex-direction: row; gap: 8px; align-items: end; }
+  .reset-btn {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 34px;
+  }
+  .reset-btn:hover { background: var(--surface-2); }
+  .filters-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+  .multiselect { position: relative; min-width: 170px; }
+  .multiselect-btn {
+    font: inherit; font-size: 13px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 7px 9px; min-height: 34px; width: 100%;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    cursor: pointer; text-align: left;
+  }
+  .multiselect-btn:hover { background: var(--surface-2); }
+  .multiselect-btn .ms-caret { color: var(--text-muted); font-size: 10px; }
+  .multiselect-panel {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 40;
+    min-width: 240px; max-height: 260px; overflow-y: auto;
+    background: var(--surface-card); border: 1px solid var(--border-strong);
+    border-radius: 8px; box-shadow: var(--shadow-card); padding: 6px;
+  }
+  .ms-option {
+    display: flex; align-items: center; gap: 8px; font-size: 13px;
+    color: var(--text-primary); padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  }
+  .ms-option:hover { background: var(--surface-2); }
+  .ms-option input { accent-color: var(--series-1); }
+  .ms-all { font-weight: 600; }
+  .ms-sep { height: 1px; background: var(--border); margin: 4px 2px; }
+  .active-chip {
+    display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--series-1); background: color-mix(in srgb, var(--series-1) 12%, transparent);
+    padding: 3px 9px; border-radius: 999px; margin-right: 6px;
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabbar { display: flex; gap: 4px; margin: 4px 0 16px; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    font: inherit; font-size: 13.5px; font-weight: 700; color: var(--text-muted);
+    background: transparent; border: none; padding: 10px 4px; margin-right: 22px;
+    cursor: pointer; position: relative; top: 1px; border-bottom: 2px solid transparent;
+  }
+  .tab-btn:hover { color: var(--text-secondary); }
+  .tab-btn.active { color: var(--series-1); border-bottom-color: var(--series-1); }
+
+  .score-table th, .score-table td { white-space: nowrap; }
+  .score-table td.name-cell { font-weight: 700; color: var(--text-primary); white-space: normal; }
+  .score-table .status-tag { white-space: nowrap; }
+
+  /* ---------- KPI row ---------- */
+  .kpi-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+    margin-bottom: 18px;
+  }
+  .kpi-card {
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 16px 16px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+    min-height: 128px;
+  }
+  .kpi-label { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
+  .kpi-value { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  .kpi-value.tabular { font-variant-numeric: proportional-nums; }
+  .kpi-sub { font-size: 12px; color: var(--text-muted); }
+  .kpi-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
+  .kpi-status-row { display:flex; align-items:center; gap:8px; margin-top:2px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .status-tag {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+    padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .split-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--grid-line); margin-top: 4px; }
+  .split-bar > span { display:block; height:100%; }
+  .split-legend { display:flex; gap:12px; font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+  .split-legend .key { display:inline-flex; align-items:center; gap:5px; }
+  .split-legend .swatch { width:8px; height:8px; border-radius:2px; display:inline-block; }
+
+  /* ---------- Chart cards ---------- */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-grid.single { grid-template-columns: 1fr; }
+  .chart-grid.map-grid { grid-template-columns: 1.6fr 1fr; }
+  #reincidenciaMap { height: 460px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  #reincidenciaMap .leaflet-tile-pane { filter: saturate(0.95); }
+  .card {
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 16px 18px 18px; margin-bottom: 16px;
+  }
+  .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px; margin-bottom: 4px; flex-wrap: wrap;
+  }
+  .card-title { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+  .card-caption { font-size: 12px; color: var(--text-muted); margin: 0; max-width: 62ch; }
+  .card-controls { display: flex; align-items: center; gap: 8px; flex: none; }
+
+  .seg {
+    display: inline-flex; background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 2px; gap: 2px;
+  }
+  .seg button {
+    font: inherit; font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+    background: transparent; border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  .seg button.active { background: var(--surface-card); color: var(--text-primary); box-shadow: 0 1px 2px rgba(11,11,11,0.12); }
+  .table-toggle-btn {
+    font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+    background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  .table-toggle-btn:hover { color: var(--text-primary); }
+  .export-btn { color: var(--series-3); border-color: color-mix(in srgb, var(--series-3) 40%, var(--border-strong)); }
+  .export-btn:hover { color: var(--series-3); background: color-mix(in srgb, var(--series-3) 12%, var(--surface-1)); }
+
+  .chart-body { margin-top: 10px; position: relative; }
+  .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin: 8px 2px 0; }
+  .chart-legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .chart-legend .line-key { width: 14px; height: 2px; border-radius: 2px; display: inline-block; }
+  .chart-legend .rect-key { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .empty-note { font-size: 13px; color: var(--text-muted); padding: 30px 6px; text-align: center; }
+  .muted-note { font-size: 11px; color: var(--text-muted); }
+
+  /* tooltip */
+  .viz-tooltip {
+    position: fixed; z-index: 60; pointer-events: none;
+    background: var(--text-primary); color: var(--surface-1);
+    font-size: 12px; line-height: 1.5; border-radius: 8px; padding: 8px 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25); max-width: 260px;
+    opacity: 0; transform: translate(-9999px,-9999px); transition: opacity .08s ease;
+  }
+  [data-theme="dark"] .viz-tooltip { background: #050505; color: #fff; }
+  .viz-tooltip .tt-title { font-weight: 700; margin-bottom: 4px; }
+  .viz-tooltip .tt-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; gap:10px;}
+  .viz-tooltip .tt-key { display:flex; align-items:center; gap:6px; opacity: .9; }
+  .viz-tooltip .tt-swatch { width: 8px; height: 2px; border-radius: 2px; display: inline-block; }
+  .viz-tooltip .tt-val { font-weight: 700; }
+
+  /* bar chart (div based) */
+  .bar-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .bar-row .bar-label {
+    width: 168px; flex: none; font-size: 12.5px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .bar-track { flex: 1; position: relative; height: 20px; background: var(--surface-1); border-radius: 4px; }
+  .bar-fill {
+    position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px;
+    min-width: 2px; transition: width .25s ease;
+  }
+  .bar-value { min-width: 86px; flex: none; text-align: right; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* stacked column chart */
+  .stack-chart { display: flex; align-items: flex-end; gap: 10px; height: 220px; padding: 4px 4px 0; }
+  .stack-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+  .stack-bars { width: 100%; max-width: 34px; display: flex; flex-direction: column-reverse; border-radius: 4px 4px 0 0; overflow: hidden; }
+  .stack-seg { width: 100%; }
+  .stack-col .x-label { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+
+  /* heatmap */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap { border-collapse: separate; border-spacing: 3px; font-size: 11px; }
+  .heatmap th { font-weight: 600; color: var(--text-muted); font-size: 10.5px; padding: 2px 4px; text-align: center; }
+  .heatmap th.row-h { text-align: right; padding-right: 8px; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+  .heatmap td { width: 30px; height: 24px; border-radius: 4px; text-align: center; cursor: default; }
+  .heatmap td.cell-val { color: #fff; font-size: 10.5px; font-weight: 700; }
+  .heat-scale { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+  .heat-scale .swatches { display: flex; }
+  .heat-scale .sw { width: 16px; height: 10px; }
+
+  /* data table (table view) */
+  .data-table-wrap { max-height: 340px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 8px; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.data-table th {
+    position: sticky; top: 0; background: var(--surface-2); text-align: left;
+    padding: 8px 10px; font-weight: 700; color: var(--text-secondary); border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  table.data-table td {
+    padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text-primary);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  table.data-table tr:hover td { background: var(--surface-1); }
+  table.data-table td.num, table.data-table th.num { text-align: right; }
+  table.data-table tr.row-selectable { cursor: pointer; }
+  table.data-table tr.row-selected td { background: color-mix(in srgb, var(--series-1) 14%, var(--surface-card)); }
+  .incident-timeline { display: flex; flex-direction: column; gap: 10px; }
+  .incident-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface-1);
+  }
+  .incident-item .inc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .incident-item .inc-date { font-weight: 700; color: var(--text-primary); font-size: 13px; }
+  .incident-item .inc-hora { color: var(--text-muted); font-size: 12px; }
+  .incident-item .inc-motivo { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 4px; }
+  .incident-item .inc-retro { font-size: 12.5px; color: var(--text-primary); }
+  .incident-item .inc-retro.empty { color: var(--text-muted); font-style: italic; }
+
+  /* line chart svg */
+  svg.linechart { width: 100%; height: auto; display: block; overflow: visible; }
+  .grid-line { stroke: var(--grid-line); stroke-width: 1; }
+  .axis-line { stroke: var(--baseline); stroke-width: 1; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; font-family: system-ui, sans-serif; }
+  .crosshair { stroke: var(--text-muted); stroke-width: 1; opacity: 0; }
+  .series-line { fill: none; stroke-width: 2; }
+  .series-area { opacity: 0.10; }
+  .series-dot { stroke-width: 2; }
+
+  footer.foot {
+    max-width: 1360px; margin: 24px auto 0; padding: 16px 20px 0;
+    border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+
+  @media (max-width: 1080px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .chart-grid, .chart-grid.map-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .bar-row .bar-label { width: 108px; }
+  }
+</style>
+</head>
+<body class="viz-root">
+<div class="viz-tooltip" id="ttip"></div>
+
+<header class="top">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <span class="eyebrow">Distribución BK37 · Operación de reparto</span>
+      <h1>Radar del Rechazo</h1>
+      <p class="sub">Rechazos a nivel de pedidos y de volumen — evolución, rutas, empresas y motivos</p>
+    </div>
+    <div class="header-meta">
+      <span class="meta-pill" id="rangePill">01–15 ago 2026</span>
+      <span class="meta-pill" id="rowsPill">15,653 paradas</span>
+      <button class="theme-btn" id="themeBtn" type="button">
+        <span id="themeIcon">🌙</span><span id="themeLabel">Modo oscuro</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- UPLOAD / ACCUMULATE DATA -->
+  <section class="filters-card" id="uploadCard" aria-label="Cargar datos adicionales">
+    <div class="upload-head">
+      <div>
+        <p class="card-title" style="margin-bottom:2px;">Cargar más datos (acumulativo)</p>
+        <p class="card-caption">Agrega archivos con la misma estructura (Excel .xlsx, hoja HTML .xls, o .csv) para sumarlos al panel. Los nuevos datos se combinan con los ya cargados — no los reemplazan.</p>
+      </div>
+      <label class="upload-btn" for="fileInput">
+        <span>+ Agregar archivo</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.txt,.html,.htm" multiple hidden>
+      </label>
+    </div>
+    <div id="uploadStatus" class="upload-status" style="display:none;"></div>
+    <div id="batchList" class="batch-list"></div>
+  </section>
+
+  <!-- TABS -->
+  <div class="tabbar" role="tablist">
+    <button class="tab-btn active" id="tabBtnGeneral" data-tab="general" type="button" role="tab" aria-selected="true">Resumen general</button>
+    <button class="tab-btn" id="tabBtnEmpresa" data-tab="empresa" type="button" role="tab" aria-selected="false">Seguimiento EDT</button>
+    <button class="tab-btn" id="tabBtnStaff" data-tab="staff" type="button" role="tab" aria-selected="false">Seguimiento comercial</button>
+    <button class="tab-btn" id="tabBtnReincidencia" data-tab="reincidencia" type="button" role="tab" aria-selected="false">Reincidencia de clientes</button>
+  </div>
+
+  <div id="tabGeneral">
+
+  <section class="filters-card" aria-label="Filtros — Resumen general">
+    <div class="filters-row">
+      <div class="filter-field dates">
+        <div>
+          <label for="fStart-g">Desde</label>
+          <input type="date" id="fStart-g">
+        </div>
+        <div>
+          <label for="fEnd-g">Hasta</label>
+          <input type="date" id="fEnd-g">
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMes-g">Mes</label>
+        <select id="fMes-g"><option value="">Todos los meses</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fSemana-g">Semana</label>
+        <select id="fSemana-g"><option value="">Todas las semanas</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fEmpresaBtn-g">Empresa</label>
+        <div class="multiselect" id="fEmpresaMS-g">
+          <button type="button" class="multiselect-btn" id="fEmpresaBtn-g" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fEmpresaBtnLabel-g">Todas</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fEmpresaPanel-g" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fEmpresaAll-g" checked> Todas</label>
+            <div class="ms-sep"></div>
+            <div id="fEmpresaOptions-g"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fCiudadBtn-g">Distrito</label>
+        <div class="multiselect" id="fCiudadMS-g">
+          <button type="button" class="multiselect-btn" id="fCiudadBtn-g" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fCiudadBtnLabel-g">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fCiudadPanel-g" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fCiudadAll-g" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fCiudadOptions-g"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMotivoBtn-g">Motivo de rechazo</label>
+        <div class="multiselect" id="fMotivoMS-g">
+          <button type="button" class="multiselect-btn" id="fMotivoBtn-g" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fMotivoBtnLabel-g">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fMotivoPanel-g" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fMotivoAll-g" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fMotivoOptions-g"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fTipoBtn-g">Tipo de rechazo</label>
+        <div class="multiselect" id="fTipoMS-g">
+          <button type="button" class="multiselect-btn" id="fTipoBtn-g" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fTipoBtnLabel-g">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fTipoPanel-g" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fTipoAll-g" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fTipoOptions-g"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label>&nbsp;</label>
+        <button class="reset-btn" id="resetBtn-g" type="button">Restablecer filtros</button>
+      </div>
+    </div>
+    <div class="filters-note" id="filtersNote-g"></div>
+  </section>
+
+
+  <!-- KPIs -->
+  <section class="kpi-grid" id="kpiGrid" aria-label="Indicadores clave"></section>
+
+  <!-- Trend -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Evolución del MR</p>
+        <p class="card-caption">Pedidos rechazados sobre pedidos planeados, y cajas rechazadas sobre cajas programadas.</p>
+      </div>
+      <div class="card-controls">
+        <div class="seg" id="periodoSeg">
+          <button data-val="diario" class="active" type="button">Diario</button>
+          <button data-val="mensual" type="button">Mensual</button>
+        </div>
+        <button class="table-toggle-btn" data-table-for="trend" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body" id="trendChart"></div>
+    <div id="trendTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  <!-- Total vs Parcial -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Rechazos completos vs. parciales por día</p>
+        <p class="card-caption">Mapea cuántos pedidos se rechazan por completo frente a los que solo se rechazan parcialmente.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn" data-table-for="stack" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body" id="stackChart"></div>
+    <div class="chart-legend">
+      <span class="key"><span class="rect-key" style="background:var(--status-critical)"></span>Rechazo completo</span>
+      <span class="key"><span class="rect-key" style="background:var(--status-warning)"></span>Rechazo parcial</span>
+    </div>
+    <div id="stackTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  <!-- Metric toggle shared -->
+  <div class="filters-card" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div style="font-size:13px; color:var(--text-secondary); font-weight:600;">Medir rankings y mapa de calor por:</div>
+    <div class="seg" id="metricSeg">
+      <button data-val="pedidos" class="active" type="button">Pedidos rechazados</button>
+      <button data-val="cajas" type="button">Cajas rechazadas</button>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Rutas con más rechazos</p>
+          <p class="card-caption">Top 10 rutas acumuladas en el rango seleccionado. Acorta el rango a un día para ver el detalle diario.</p>
+        </div>
+        <div class="card-controls">
+          <button class="table-toggle-btn" data-table-for="rutas" type="button">Ver tabla</button>
+        </div>
+      </div>
+      <div class="chart-body" id="rutasChart"></div>
+      <div id="rutasTable" class="data-table-wrap" style="display:none;"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Empresas con más rechazos</p>
+          <p class="card-caption">Top 10 empresas/clientes acumulados en el rango seleccionado.</p>
+        </div>
+        <div class="card-controls">
+          <button class="table-toggle-btn" data-table-for="empresas" type="button">Ver tabla</button>
+        </div>
+      </div>
+      <div class="chart-body" id="empresasChart"></div>
+      <div id="empresasTable" class="data-table-wrap" style="display:none;"></div>
+    </section>
+  </div>
+
+  <!-- Heatmap -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Mapa de calor: rechazos por ruta y día</p>
+        <p class="card-caption">Top 15 rutas del periodo filtrado. El color más oscuro indica mayor cantidad de rechazos ese día.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn" data-table-for="heat" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body heatmap-wrap" id="heatChart"></div>
+    <div id="heatTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  <!-- Motivos -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Principales motivos de rechazo</p>
+        <p class="card-caption">Distribución de pedidos rechazados según el motivo registrado por el agente.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn" data-table-for="motivos" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body" id="motivosChart"></div>
+    <div id="motivosTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  </div><!-- /tabGeneral -->
+
+  <div id="tabEmpresarial" style="display:none;">
+
+  <section class="filters-card" aria-label="Filtros — Seguimiento EDT">
+    <div class="filters-row">
+      <div class="filter-field dates">
+        <div>
+          <label for="fStart-e">Desde</label>
+          <input type="date" id="fStart-e">
+        </div>
+        <div>
+          <label for="fEnd-e">Hasta</label>
+          <input type="date" id="fEnd-e">
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMes-e">Mes</label>
+        <select id="fMes-e"><option value="">Todos los meses</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fSemana-e">Semana</label>
+        <select id="fSemana-e"><option value="">Todas las semanas</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fEmpresaBtn-e">Empresa</label>
+        <div class="multiselect" id="fEmpresaMS-e">
+          <button type="button" class="multiselect-btn" id="fEmpresaBtn-e" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fEmpresaBtnLabel-e">Todas</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fEmpresaPanel-e" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fEmpresaAll-e" checked> Todas</label>
+            <div class="ms-sep"></div>
+            <div id="fEmpresaOptions-e"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fCiudadBtn-e">Distrito</label>
+        <div class="multiselect" id="fCiudadMS-e">
+          <button type="button" class="multiselect-btn" id="fCiudadBtn-e" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fCiudadBtnLabel-e">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fCiudadPanel-e" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fCiudadAll-e" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fCiudadOptions-e"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMotivoBtn-e">Motivo de rechazo</label>
+        <div class="multiselect" id="fMotivoMS-e">
+          <button type="button" class="multiselect-btn" id="fMotivoBtn-e" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fMotivoBtnLabel-e">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fMotivoPanel-e" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fMotivoAll-e" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fMotivoOptions-e"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fTipoBtn-e">Tipo de rechazo</label>
+        <div class="multiselect" id="fTipoMS-e">
+          <button type="button" class="multiselect-btn" id="fTipoBtn-e" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fTipoBtnLabel-e">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fTipoPanel-e" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fTipoAll-e" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fTipoOptions-e"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label>&nbsp;</label>
+        <button class="reset-btn" id="resetBtn-e" type="button">Restablecer filtros</button>
+      </div>
+    </div>
+    <div class="filters-note" id="filtersNote-e"></div>
+  </section>
+
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Seguimiento EDT — rechazos por empresa de transporte</p>
+        <p class="card-caption">Compara las empresas transportistas entre sí según los filtros seleccionados (fechas, empresa, distrito y motivo).</p>
+      </div>
+      <div class="card-controls">
+        <div class="seg" id="empMetricSeg">
+          <button data-val="pedidos" class="active" type="button">MR pedidos</button>
+          <button data-val="cajas" type="button">MR volumen</button>
+        </div>
+        <button class="table-toggle-btn export-btn" data-export-for="empresaScoreTable" type="button">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="data-table-wrap" style="max-height:none; margin-top:12px;">
+      <table class="data-table" id="empresaScoreTable"></table>
+    </div>
+  </section>
+
+  <div class="chart-grid">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">MR por empresa</p>
+          <p class="card-caption">Semáforo de desempeño: verde bajo control, ámbar en atención, rojo crítico.</p>
+        </div>
+      </div>
+      <div class="chart-body" id="empRateChart"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Mezcla de rechazos por empresa</p>
+          <p class="card-caption">Completos vs. parciales, acumulado del periodo filtrado.</p>
+        </div>
+      </div>
+      <div class="chart-body" id="empMixChart"></div>
+      <div class="chart-legend">
+        <span class="key"><span class="rect-key" style="background:var(--status-critical)"></span>Rechazo completo</span>
+        <span class="key"><span class="rect-key" style="background:var(--status-warning)"></span>Rechazo parcial</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="chart-grid">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Top rutas con más rechazos</p>
+          <p class="card-caption">Top 10 rutas acumuladas según los filtros seleccionados, coloreadas según la empresa transportista dueña de la ruta.</p>
+        </div>
+        <div class="card-controls">
+          <button class="table-toggle-btn" data-table-for="empRutas" type="button">Ver tabla</button>
+        </div>
+      </div>
+      <div class="chart-body" id="empRutasChart"></div>
+      <div id="empRutasTable" class="data-table-wrap" style="display:none;"></div>
+      <div class="chart-legend" id="empRutasLegend"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Top motivos de rechazo</p>
+          <p class="card-caption">Motivos de rechazo más frecuentes, acumulados entre todas las empresas en el periodo filtrado.</p>
+        </div>
+        <div class="card-controls">
+          <button class="table-toggle-btn" data-table-for="empMotivos" type="button">Ver tabla</button>
+        </div>
+      </div>
+      <div class="chart-body" id="empMotivosChart"></div>
+      <div id="empMotivosTable" class="data-table-wrap" style="display:none;"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Top rechazo y clientes con retroalimentación del motivo</p>
+        <p class="card-caption">Top 10 clientes con más pedidos rechazados según los filtros seleccionados, identificados por código y nombre para distinguir cada local. La tabla incluye las rutas asociadas, el motivo de rechazo y la retroalimentación más reciente que el agente registró.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn" data-table-for="empClientes" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body" id="empClientesChart"></div>
+    <div id="empClientesTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Evolución diaria del MR por empresa</p>
+        <p class="card-caption">Una línea por empresa — permite comparar tendencias y detectar quién mejora o empeora.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn" data-table-for="empTrend" type="button">Ver tabla</button>
+      </div>
+    </div>
+    <div class="chart-body" id="empTrendChart"></div>
+    <div id="empTrendTable" class="data-table-wrap" style="display:none;"></div>
+  </section>
+
+  </div><!-- /tabEmpresarial -->
+
+  <div id="tabStaff" style="display:none;">
+
+  <section class="filters-card" aria-label="Filtros — Seguimiento comercial">
+    <div class="filters-row">
+      <div class="filter-field dates">
+        <div>
+          <label for="fStart-s">Desde</label>
+          <input type="date" id="fStart-s">
+        </div>
+        <div>
+          <label for="fEnd-s">Hasta</label>
+          <input type="date" id="fEnd-s">
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMes-s">Mes</label>
+        <select id="fMes-s"><option value="">Todos los meses</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fSemana-s">Semana</label>
+        <select id="fSemana-s"><option value="">Todas las semanas</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fSupervisorBtn-s">Supervisor</label>
+        <div class="multiselect" id="fSupervisorMS-s">
+          <button type="button" class="multiselect-btn" id="fSupervisorBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fSupervisorBtnLabel-s">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fSupervisorPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fSupervisorAll-s" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fSupervisorOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fCiudadBtn-s">Distrito</label>
+        <div class="multiselect" id="fCiudadMS-s">
+          <button type="button" class="multiselect-btn" id="fCiudadBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fCiudadBtnLabel-s">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fCiudadPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fCiudadAll-s" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fCiudadOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fZonaBtn-s">Zona AC</label>
+        <div class="multiselect" id="fZonaMS-s">
+          <button type="button" class="multiselect-btn" id="fZonaBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fZonaBtnLabel-s">Todas</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fZonaPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fZonaAll-s" checked> Todas</label>
+            <div class="ms-sep"></div>
+            <div id="fZonaOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fCanalComBtn-s">Canal comercial</label>
+        <div class="multiselect" id="fCanalComMS-s">
+          <button type="button" class="multiselect-btn" id="fCanalComBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fCanalComBtnLabel-s">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fCanalComPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fCanalComAll-s" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fCanalComOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMotivoBtn-s">Motivo de rechazo</label>
+        <div class="multiselect" id="fMotivoMS-s">
+          <button type="button" class="multiselect-btn" id="fMotivoBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fMotivoBtnLabel-s">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fMotivoPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fMotivoAll-s" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fMotivoOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fTipoBtn-s">Tipo de rechazo</label>
+        <div class="multiselect" id="fTipoMS-s">
+          <button type="button" class="multiselect-btn" id="fTipoBtn-s" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fTipoBtnLabel-s">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fTipoPanel-s" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fTipoAll-s" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fTipoOptions-s"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label>&nbsp;</label>
+        <button class="reset-btn" id="resetBtn-s" type="button">Restablecer filtros</button>
+      </div>
+    </div>
+    <div class="filters-note" id="filtersNote-s"></div>
+  </section>
+
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Rechazo por supervisor</p>
+        <p class="card-caption">Compara a los supervisores entre sí según los filtros seleccionados (fechas, supervisor, distrito, canal, canal comercial y motivo). El supervisor se asigna de forma estable por zona de venta.</p>
+      </div>
+      <div class="card-controls">
+        <div class="seg" id="supMetricSeg">
+          <button data-val="pedidos" class="active" type="button">MR pedidos</button>
+          <button data-val="cajas" type="button">MR volumen</button>
+        </div>
+        <button class="table-toggle-btn export-btn" data-export-for="supervisorScoreTable" type="button">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="data-table-wrap" style="max-height:none; margin-top:12px;">
+      <table class="data-table" id="supervisorScoreTable"></table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">MR por supervisor</p>
+        <p class="card-caption">Semáforo de desempeño: verde bajo control, ámbar en atención, rojo crítico.</p>
+      </div>
+    </div>
+    <div class="chart-body" id="supRateChart"></div>
+  </section>
+
+  <div class="filters-card" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div style="font-size:13px; color:var(--text-secondary); font-weight:600;">Medir rankings por:</div>
+    <div class="seg" id="metricSeg-s">
+      <button data-val="pedidos" class="active" type="button">Pedidos rechazados</button>
+      <button data-val="cajas" type="button">Cajas rechazadas</button>
+    </div>
+  </div>
+
+  <div class="chart-grid single">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Ranking de zonas de venta con más rechazos</p>
+          <p class="card-caption">Top 10 zonas (zonaac) acumuladas según los filtros seleccionados, con su supervisor asignado de forma estable.</p>
+        </div>
+        <div class="card-controls">
+          <button class="table-toggle-btn" data-table-for="zonas" type="button">Ver tabla</button>
+        </div>
+      </div>
+      <div class="chart-body" id="zonasChart"></div>
+      <div id="zonasTable" class="data-table-wrap" style="display:none;"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Clientes rechazados por zona de venta</p>
+        <p class="card-caption">Código y nombre de los clientes con rechazos en cada zona, con su motivo principal, la retroalimentación más reciente y su reincidencia (días distintos con rechazo), según los filtros seleccionados (hasta 5 clientes por zona, ordenados por más rechazos).</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn export-btn" data-export-for="clientesZonaTable" type="button">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="data-table-wrap" id="clientesZonaTable"></div>
+    <p class="muted-note" id="clientesZonaNote" style="margin-top:8px;"></p>
+  </section>
+
+  </div><!-- /tabStaff -->
+
+  <div id="tabReincidencia" style="display:none;">
+
+  <section class="filters-card" aria-label="Filtros — Reincidencia de clientes">
+    <div class="filters-row">
+      <div class="filter-field dates">
+        <div>
+          <label for="fStart-r">Desde</label>
+          <input type="date" id="fStart-r">
+        </div>
+        <div>
+          <label for="fEnd-r">Hasta</label>
+          <input type="date" id="fEnd-r">
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMes-r">Mes</label>
+        <select id="fMes-r"><option value="">Todos los meses</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fSemana-r">Semana</label>
+        <select id="fSemana-r"><option value="">Todas las semanas</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fCodigo-r">Buscar código de cliente</label>
+        <input type="text" id="fCodigo-r" placeholder="Ej. 10262275" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="filter-field">
+        <label for="fDowBtn-r">Día de la semana</label>
+        <div class="multiselect" id="fDowMS-r">
+          <button type="button" class="multiselect-btn" id="fDowBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fDowBtnLabel-r">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fDowPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fDowAll-r" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fDowOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fEmpresaBtn-r">Empresa</label>
+        <div class="multiselect" id="fEmpresaMS-r">
+          <button type="button" class="multiselect-btn" id="fEmpresaBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fEmpresaBtnLabel-r">Todas</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fEmpresaPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fEmpresaAll-r" checked> Todas</label>
+            <div class="ms-sep"></div>
+            <div id="fEmpresaOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fSupervisorBtn-r">Supervisor</label>
+        <div class="multiselect" id="fSupervisorMS-r">
+          <button type="button" class="multiselect-btn" id="fSupervisorBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fSupervisorBtnLabel-r">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fSupervisorPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fSupervisorAll-r" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fSupervisorOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fCiudadBtn-r">Distrito</label>
+        <div class="multiselect" id="fCiudadMS-r">
+          <button type="button" class="multiselect-btn" id="fCiudadBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fCiudadBtnLabel-r">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fCiudadPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fCiudadAll-r" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fCiudadOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fZonaBtn-r">Zona AC</label>
+        <div class="multiselect" id="fZonaMS-r">
+          <button type="button" class="multiselect-btn" id="fZonaBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fZonaBtnLabel-r">Todas</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fZonaPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fZonaAll-r" checked> Todas</label>
+            <div class="ms-sep"></div>
+            <div id="fZonaOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fMotivoBtn-r">Motivo de rechazo</label>
+        <div class="multiselect" id="fMotivoMS-r">
+          <button type="button" class="multiselect-btn" id="fMotivoBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fMotivoBtnLabel-r">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fMotivoPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fMotivoAll-r" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fMotivoOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fTipoBtn-r">Tipo de rechazo</label>
+        <div class="multiselect" id="fTipoMS-r">
+          <button type="button" class="multiselect-btn" id="fTipoBtn-r" aria-haspopup="listbox" aria-expanded="false">
+            <span id="fTipoBtnLabel-r">Todos</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="multiselect-panel" id="fTipoPanel-r" style="display:none;">
+            <label class="ms-option ms-all"><input type="checkbox" id="fTipoAll-r" checked> Todos</label>
+            <div class="ms-sep"></div>
+            <div id="fTipoOptions-r"></div>
+          </div>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label>&nbsp;</label>
+        <button class="reset-btn" id="resetBtn-r" type="button">Restablecer filtros</button>
+      </div>
+    </div>
+    <div class="filters-note" id="filtersNote-r"></div>
+  </section>
+
+
+  <!-- KPIs -->
+  <section class="kpi-grid" id="kpiGridReincidencia" aria-label="Indicadores de reincidencia"></section>
+
+  <div class="chart-grid map-grid">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Mapa de rechazos por ubicación</p>
+          <p class="card-caption">Cada punto es un cliente con rechazo (código + retroalimentación), ubicado con el maestro de clientes. El tamaño indica pedidos rechazados y el color, el nivel de reincidencia.</p>
+        </div>
+      </div>
+      <div class="chart-body" id="reincidenciaMap"></div>
+      <p class="card-caption" id="reincidenciaMapNote" style="margin-top:8px;"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">Distritos con más rechazos</p>
+          <p class="card-caption">Top 8 distritos por pedidos rechazados, según los clientes que pasan los filtros seleccionados.</p>
+        </div>
+      </div>
+      <div class="chart-body" id="reincidenciaDistritos"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title">Clientes con rechazos recurrentes</p>
+        <p class="card-caption">Código y nombre de cliente, ordenados por reincidencia (días distintos con al menos un rechazo). Haz clic en un cliente para ver su historial completo de incidencias.</p>
+      </div>
+      <div class="card-controls">
+        <button class="table-toggle-btn export-btn" data-export-for="reincidenciaTable" type="button">⬇ Excel</button>
+      </div>
+    </div>
+    <div class="data-table-wrap" id="reincidenciaTable" style="max-height:420px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <p class="card-title" id="incidentDetailTitle">Historial de incidencias</p>
+        <p class="card-caption">Cada incidencia del cliente seleccionado, con fecha, hora de la alerta, motivo y la retroalimentación registrada por el agente — para llevar el control y tomar acciones con los clientes más reincidentes.</p>
+      </div>
+    </div>
+    <div id="incidentDetail" class="incident-timeline"></div>
+  </section>
+
+  </div><!-- /tabReincidencia -->
+
+</div>
+
+<footer class="foot">
+  <span>Fuente: hoja de ruta operativa, <span id="footRange">01–15 ago 2026</span> (<span id="footStops">15,653</span> paradas). Generado el <span id="genDate"></span>.</span>
+  <span>Panel de control de rechazos — uso interno</span>
+</footer>
+
+<script id="data-json" type="application/json">__DATA_JSON__</script>
+<script>
+__APP_JS__
+</script>
+</body>
+</html>
